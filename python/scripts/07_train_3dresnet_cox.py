@@ -70,16 +70,17 @@ def main():
                     loss = loss + cox_partial_likelihood_loss(pred[ep], y[f'{ep}_time'].to(device), y[f'{ep}_event'].to(device))
                 val_losses.append(float(loss.cpu()))
         val_loss = sum(val_losses) / max(1, len(val_losses))
-        print(f'epoch={epoch} train_loss={sum(losses)/max(1,len(losses)):.4f} val_loss={val_loss:.4f}')
+        if epoch == 1 or epoch == cfg['deep_learning']['max_epochs'] or epoch % 10 == 0:
+            print(f'epoch={epoch} status=running')
         if val_loss < best_val:
             best_val = val_loss
             stale = 0
-            torch.save({'model_state_dict': model.state_dict(), 'config': cfg}, outdir / 'resnet3d_multicox_best.pt')
+            torch.save({'model_state_dict': model.state_dict()}, outdir / 'resnet3d_multicox_best.pt')
         else:
             stale += 1
         if stale >= patience:
             break
-    print(outdir / 'resnet3d_multicox_best.pt')
+    print('Training complete.')
 
 if __name__ == '__main__':
     main()

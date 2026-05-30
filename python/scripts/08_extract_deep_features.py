@@ -37,7 +37,7 @@ def main():
     outdir = ensure_dir(cfg['deep_learning']['output_dir'])
     out_csv = outdir / 'deep_features.csv'
     feats.to_csv(out_csv, index=False)
-    print(out_csv)
+    print('Deep feature extraction complete.')
 
 if __name__ == '__main__':
     main()

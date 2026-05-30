@@ -20,7 +20,7 @@ def crop_and_resize_modalities(row: pd.Series, sequences: list[str], mask_col: s
     mask_arr, _ = _read_array(row[mask_col])
     coords = np.argwhere(mask_arr > 0)
     if coords.size == 0:
-        raise ValueError(f"Empty mask for patient {row['patient_id']}")
+        raise ValueError("Empty mask for one patient.")
     z0, y0, x0 = np.maximum(coords.min(axis=0) - margin, 0)
     z1, y1, x1 = np.minimum(coords.max(axis=0) + margin + 1, mask_arr.shape)
     channels = []

@@ -16,7 +16,7 @@ if [[ "$MODE" == "demo" ]]; then
   echo "[demo] Running LASSO Cox prognostic models..."
   python python/scripts/11_lasso_cox_models.py --config config/demo_config.yaml
   python python/scripts/12_evaluate_models.py --config config/demo_config.yaml
-  echo "[demo] Done. Outputs are in results/demo."
+  echo "[demo] Done."
 elif [[ "$MODE" == "full" ]]; then
   echo "[full] Running MRI preprocessing..."
   python python/scripts/01_preprocess_mri.py --config "$PY_CONFIG"
@@ -33,7 +33,7 @@ elif [[ "$MODE" == "full" ]]; then
   python python/scripts/12_evaluate_models.py --config "$PY_CONFIG"
   python python/scripts/13_make_figures.py --config "$PY_CONFIG"
   Rscript R/run_scRNA_pipeline.R "$R_CONFIG"
-  echo "[full] Done. Outputs are in results/."
+  echo "[full] Done."
 else
   echo "Usage: bash run_all.sh {demo|full} [python_config] [scRNA_config]" >&2
   exit 1

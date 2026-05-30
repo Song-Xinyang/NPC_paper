@@ -55,7 +55,7 @@ def make_nnunet_dataset(
 
 
 def run_command(cmd: list[str], env: dict[str, str] | None = None, dry_run: bool = False) -> None:
-    print(" ".join(cmd))
+    print("Running nnU-Net command.")
     if dry_run:
         return
     subprocess.run(cmd, check=True, env=env)

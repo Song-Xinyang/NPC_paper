@@ -29,7 +29,7 @@ def main():
         covariates=c['covariates'],
         outdir=outdir,
     )
-    print(res)
+    print('Interaction analysis complete.')
 
 if __name__ == '__main__':
     main()

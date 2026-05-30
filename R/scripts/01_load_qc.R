@@ -15,7 +15,7 @@ load_and_qc_scRNA <- function(cfg) {
   objects <- list()
   for (i in seq_len(nrow(meta))) {
     sample_id <- as.character(meta[[sample_col]][i])
-    message("Reading ", sample_id)
+    message("Reading sample")
     counts <- read_10x_any(as.character(meta[[tenx_col]][i]))
     if (is.list(counts)) counts <- counts[[1]]
     obj <- CreateSeuratObject(

@@ -31,7 +31,7 @@ def main():
     merged = manifest.merge(prep, on='patient_id', how='left')
     out_csv = outdir / 'preprocessed_manifest.csv'
     merged.to_csv(out_csv, index=False)
-    print(out_csv)
+    print('Preprocessing complete.')
 
 if __name__ == '__main__':
     main()

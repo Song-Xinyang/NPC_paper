@@ -12,7 +12,7 @@ def load_config(path: str | Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     if cfg is None:
-        raise ValueError(f"Empty config file: {path}")
+        raise ValueError("Empty config file.")
     return cfg
 
 

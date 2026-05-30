@@ -126,4 +126,4 @@ def load_medicalnet_weights(model: nn.Module, checkpoint_path: str | None, stric
         cleaned[k2] = v
     target = model.encoder if hasattr(model, "encoder") else model
     missing, unexpected = target.load_state_dict(cleaned, strict=strict)
-    print(f"Loaded MedicalNet-style weights with {len(missing)} missing and {len(unexpected)} unexpected keys.")
+    print("Loaded MedicalNet-style weights.")

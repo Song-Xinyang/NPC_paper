@@ -53,7 +53,7 @@ def main():
         predictions[c['endpoints'][ep]['time']] = df[c['endpoints'][ep]['time']].values
         predictions[c['endpoints'][ep]['event']] = df[c['endpoints'][ep]['event']].values
     predictions.to_csv(outdir / 'endpoint_scores.csv', index=False)
-    print(outdir / 'endpoint_scores.csv')
+    print('LASSO Cox modeling complete.')
 
 if __name__ == '__main__':
     main()

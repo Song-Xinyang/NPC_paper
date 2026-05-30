@@ -26,7 +26,7 @@ def main():
         plot_threshold_scan(pd.read_csv(scan_path), locked, outdir / f'Figure_threshold_{ep}.png')
     if boot_path.exists():
         plot_bootstrap_thresholds(pd.read_csv(boot_path), locked, outdir / f'Figure_bootstrap_threshold_{ep}.png')
-    print(outdir)
+    print('Figure generation complete.')
 
 if __name__ == '__main__':
     main()

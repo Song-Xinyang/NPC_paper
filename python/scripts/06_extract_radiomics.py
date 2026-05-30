@@ -30,7 +30,7 @@ def main():
         filters=cfg['radiomics'].get('filters', {}),
         compute_shape_per_sequence=cfg['radiomics'].get('compute_shape_per_sequence', True),
     )
-    print(out_csv)
+    print('Radiomics extraction complete.')
 
 if __name__ == '__main__':
     main()

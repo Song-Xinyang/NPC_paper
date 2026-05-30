@@ -32,7 +32,7 @@ def main():
         n_bootstrap=m.get('bootstrap_iterations', 1000),
         seed=cfg['project'].get('seed', 1234),
     )
-    print(res)
+    print('Model evaluation complete.')
     for ep, score_col in score_cols.items():
         train = scores[scores[c['cohort_col']] == c['train_label']]
         cutoff = train[score_col].median()

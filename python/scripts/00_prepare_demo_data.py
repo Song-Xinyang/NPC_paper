@@ -60,7 +60,7 @@ def main():
         deep[f'DL{i}'] = 0.55*base_lp + rng.normal(0, 1, n)
     rad.to_csv(out / 'radiomics_demo.csv', index=False)
     deep.to_csv(out / 'deep_features_demo.csv', index=False)
-    print(f'Wrote demo data to {out}')
+    print('Wrote demo data.')
 
 if __name__ == '__main__':
     main()

@@ -30,7 +30,7 @@ def main():
         sequences=cfg['mri']['sequences'],
         label_col='mask_preprocessed_path' if 'mask_preprocessed_path' in manifest.columns else cfg['inputs'].get('manual_mask_column', 'mask_path'),
     )
-    print(ds)
+    print('nnU-Net dataset prepared.')
 
 if __name__ == '__main__':
     main()

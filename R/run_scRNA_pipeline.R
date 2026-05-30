@@ -43,4 +43,4 @@ message("[8/8] Plot figure panels")
 plot_scRNA_outputs(obj, de_all, go, corr_result, cfg)
 
 safe_save_rds(obj, file.path(outdir, "final_scRNA_object.rds"))
-message("Done. scRNA outputs are in: ", outdir)
+message("Done.")

@@ -2,9 +2,14 @@ data/raw/
 data/interim/
 data/processed/
 data/tenx/
+data/demo/
+data/*.csv
+!data/schemas/
+!data/schemas/*.csv
 results/*
 !results/README.md
 logs/*
+logs/
 models/*
 !models/README.md
 *.nii
@@ -17,6 +22,9 @@ models/*
 *.ckpt
 *.pkl
 *.joblib
+*.out
+*.err
+*.tmp
 .DS_Store
 .vscode/
 .Rhistory

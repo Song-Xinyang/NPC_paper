@@ -25,7 +25,7 @@ def set_seed(seed: int = 1234) -> None:
 def read_table(path: str | Path) -> pd.DataFrame:
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError("Input file not found.")
     if path.suffix.lower() in {".xlsx", ".xls"}:
         return pd.read_excel(path)
     if path.suffix.lower() == ".parquet":
@@ -61,7 +61,7 @@ def load_feature_tables(clinical: pd.DataFrame, feature_paths: Iterable[str | Pa
             continue
         feats = read_table(p)
         if id_col not in feats.columns:
-            raise ValueError(f"{id_col!r} not present in {p}")
+            raise ValueError(f"{id_col!r} not present in one feature table.")
         out = out.merge(feats, on=id_col, how="left")
     return out
 

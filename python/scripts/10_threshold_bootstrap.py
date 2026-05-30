@@ -50,8 +50,7 @@ def main():
     summary = summarize_bootstrap(boot, c.get('locked_ebv_cutoff', chosen['locked_cutoff']), scfg.get('tolerance_fraction', 0.10))
     write_json(summary, outdir / 'bootstrap_threshold_summary.json')
     plot_bootstrap_thresholds(boot, c.get('locked_ebv_cutoff', chosen['locked_cutoff']), outdir / f'bootstrap_thresholds_{ep}.png')
-    print(chosen)
-    print(summary)
+    print('Threshold analysis complete.')
 
 if __name__ == '__main__':
     main()

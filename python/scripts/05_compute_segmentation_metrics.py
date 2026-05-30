@@ -24,7 +24,7 @@ def main():
     metrics = evaluate_manifest(manifest, reference_col=ref_col, prediction_col=pred_col)
     outdir = ensure_dir(Path(cfg['project']['output_dir']) / 'segmentation')
     metrics.to_csv(outdir / 'segmentation_metrics.csv', index=False)
-    print(metrics.describe())
+    print('Segmentation metrics computed.')
 
 if __name__ == '__main__':
     main()
