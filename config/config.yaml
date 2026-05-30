@@ -1,0 +1,102 @@
+project:
+  name: NPC_dual_virus_MRI
+  seed: 1234
+  output_dir: results/full
+
+inputs:
+  clinical_csv: data/clinical.csv
+  imaging_manifest_csv: data/imaging_manifest.csv
+  radiomics_csv: results/full/radiomics/radiomics_features.csv
+  deep_features_csv: results/full/deep/deep_features.csv
+  manual_mask_column: mask_path
+  predicted_mask_column: pred_mask_path
+
+clinical:
+  patient_id_col: patient_id
+  cohort_col: cohort
+  train_label: train
+  internal_label: internal
+  external_label: external
+  hbsag_col: hbsag
+  ebv_col: ebv_dna
+  ebv_transform: log10_plus1
+  locked_ebv_cutoff: 6020.0
+  covariates: [age, sex, ajcc_stage, chemotherapy, induction_chemotherapy]
+  endpoints:
+    dmfs: {time: dmfs_time, event: dmfs_event}
+    pfs: {time: pfs_time, event: pfs_event}
+    os: {time: os_time, event: os_event}
+    lrrfs: {time: lrrfs_time, event: lrrfs_event}
+  threshold_reference_endpoint: dmfs
+  threshold_scan:
+    min_fraction_per_hbsag_arm: 0.10
+    min_events_per_comparison_arm: 10
+    n_grid: 300
+    bootstrap_iterations: 1000
+    tolerance_fraction: 0.10
+
+mri:
+  reference_sequence: t1c
+  sequences: [t1, t2, t1c]
+  spacing: [1.0, 1.0, 1.0]
+  n4_bias_correction: true
+  registration: rigid
+  registration_metric: mutual_information
+  zscore_per_patient_sequence: true
+  preprocessed_dir: results/full/preprocessed_mri
+
+nnunet:
+  dataset_id: 501
+  dataset_name: NPCPrimaryTumor
+  nnunet_raw: data/nnUNet_raw
+  nnunet_preprocessed: data/nnUNet_preprocessed
+  nnunet_results: models/nnUNet_results
+  trainer: nnUNetTrainer
+  configuration: 3d_fullres
+  folds: [0, 1, 2, 3, 4]
+  run_nnunet: false
+  postprocess_largest_component: true
+
+radiomics:
+  output_dir: results/full/radiomics
+  bin_width: 25
+  interpolator: sitkBSpline
+  normalize: false
+  remove_features_with_icc_below: 0.80
+  compute_shape_per_sequence: true
+  filters:
+    original: true
+    exponential: true
+    gradient: true
+    logarithm: true
+    square: true
+    squareroot: true
+    log:
+      sigma: [1.0, 3.0, 5.0]
+    wavelet: true
+
+deep_learning:
+  output_dir: results/full/deep
+  pretrained_medicalnet_path: models/pretrained/resnet_50.pth
+  input_size: [128, 128, 128]
+  batch_size: 4
+  learning_rate: 0.0001
+  max_epochs: 200
+  patience: 20
+  weight_decay: 0.00001
+  endpoints: [os, pfs, dmfs]
+  feature_layer: global_average_pooling
+  feature_dim: 2048
+  device: auto
+
+modeling:
+  output_dir: results/full/modeling
+  endpoint_order: [dmfs, os, pfs]
+  univariable_p_threshold: 0.05
+  correlation_threshold: 0.90
+  lasso_penalty_grid: [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
+  lasso_cv_folds: 10
+  lasso_selection_rule: 1se
+  risk_cutoff: training_median
+  bootstrap_iterations: 1000
+  time_points_months: [36, 60]

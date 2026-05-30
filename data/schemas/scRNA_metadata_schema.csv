@@ -1,0 +1,9 @@
+column,required,type,description
+sample_id,yes,string,De-identified single-cell sample identifier
+patient_id,yes,string,De-identified patient identifier shared with clinical table
+tenx_path,yes,path,Path to 10x filtered_feature_bc_matrix directory or h5 file
+hbsag,yes,integer,0 for negative and 1 for positive
+ebv_dna,yes,numeric,Pretreatment plasma EBV DNA copies per mL
+batch,no,string,Sequencing or processing batch
+site,no,string,Collection site or cohort label
+cluster_map_path,no,path,Optional reviewed mapping from Seurat cluster to cell type

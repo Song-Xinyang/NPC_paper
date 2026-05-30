@@ -1,0 +1,45 @@
+project:
+  name: NPC_dual_virus_MRI_demo
+  seed: 1234
+  output_dir: results/demo
+
+inputs:
+  clinical_csv: data/demo/clinical_demo.csv
+  radiomics_csv: data/demo/radiomics_demo.csv
+  deep_features_csv: data/demo/deep_features_demo.csv
+
+clinical:
+  patient_id_col: patient_id
+  cohort_col: cohort
+  train_label: train
+  internal_label: internal
+  external_label: external
+  hbsag_col: hbsag
+  ebv_col: ebv_dna
+  ebv_transform: log10_plus1
+  locked_ebv_cutoff: 6020.0
+  covariates: [age, sex, ajcc_stage, chemotherapy, induction_chemotherapy]
+  endpoints:
+    dmfs: {time: dmfs_time, event: dmfs_event}
+    pfs: {time: pfs_time, event: pfs_event}
+    os: {time: os_time, event: os_event}
+    lrrfs: {time: lrrfs_time, event: lrrfs_event}
+  threshold_reference_endpoint: dmfs
+  threshold_scan:
+    min_fraction_per_hbsag_arm: 0.10
+    min_events_per_comparison_arm: 2
+    n_grid: 12
+    bootstrap_iterations: 5
+    tolerance_fraction: 0.10
+
+modeling:
+  output_dir: results/demo/modeling
+  endpoint_order: [dmfs, os, pfs]
+  univariable_p_threshold: 1.00
+  correlation_threshold: 0.90
+  lasso_penalty_grid: [0.03, 0.1]
+  lasso_cv_folds: 2
+  lasso_selection_rule: min
+  risk_cutoff: training_median
+  bootstrap_iterations: 5
+  time_points_months: [36, 60]

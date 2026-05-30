@@ -1,0 +1,61 @@
+project:
+  name: NPC_dual_virus_scRNA
+  seed: 1234
+  output_dir: results/full/scRNA
+
+input:
+  metadata_csv: data/scRNA_metadata.csv
+  imaging_features_csv: data/image_features_groupIII.csv
+  cluster_map_csv: data/scRNA_cluster_map.csv
+  tenx_format: filtered_feature_bc_matrix
+
+columns:
+  sample_id: sample_id
+  patient_id: patient_id
+  tenx_path: tenx_path
+  hbsag: hbsag
+  ebv_dna: ebv_dna
+  batch: batch
+
+filtering:
+  locked_ebv_cutoff: 6020.0
+  keep_ebv_high_only: true
+  min_features: 200
+  max_features: 7500
+  max_percent_mt: 20
+  min_cells_per_gene: 3
+  doublet_removal: true
+  min_cells_per_donor_celltype: 20
+
+normalization:
+  method: SCTransform
+  vars_to_regress: [percent.mt]
+  integration_method: Harmony
+  harmony_group: sample_id
+
+clustering:
+  n_pcs: 30
+  resolution: 0.6
+  umap_min_dist: 0.3
+  umap_n_neighbors: 30
+
+cell_types:
+  lymphocyte_cell_types: [CD4+ T, CD8+ T, Proliferating T, NK cell]
+  major_cell_types: [Epithelial cell, T cell, B cell, Plasma cell, Macrophage, Dendritic cell, Mast cell, Endothelial cell, Fibroblast]
+
+pseudobulk:
+  group_col: hbsag_group
+  positive_label: HBV
+  negative_label: non_HBV
+  method: edgeR_QLF
+  fdr_threshold: 0.05
+  genes_of_interest: [PDCD1, CTLA4, HAVCR2, LAG3, TIGIT, BTLA, KLRG1, TOX, EOMES, CXCL13, IFNG, GZMB, PRF1, NKG7]
+
+signatures:
+  exhaustion_genes: [PDCD1, CTLA4, HAVCR2, LAG3, TIGIT, BTLA, KLRG1, TOX, EOMES, CXCL13]
+  cytotoxic_genes: [IFNG, GZMB, PRF1, NKG7]
+
+correlation:
+  imaging_feature_columns: [Rad1, Rad2, DL1, DL2, DL3, DL4, DL5, DL6]
+  method: spearman
+  fdr_threshold: 0.05
