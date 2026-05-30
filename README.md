@@ -1,4 +1,4 @@
-# NPC dual-virus MRI paper code
+# HBV modifies EBV-associated systemic risk refined by multimodal MRI in nasopharyngeal carcinoma code
 
 This repository contains the analysis code and trained model weights for the study:
 
