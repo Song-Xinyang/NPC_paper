@@ -4,14 +4,13 @@ data/processed/
 data/tenx/
 data/demo/
 data/*.csv
-!data/schemas/
-!data/schemas/*.csv
 results/*
-!results/README.md
 logs/*
 logs/
 models/*
 !models/README.md
+!models/nnNet_best.pth
+!models/Resnet-3D_best.pth
 *.nii
 *.nii.gz
 *.h5
@@ -19,6 +18,8 @@ models/*
 *.rds
 *.pt
 *.pth
+!models/nnNet_best.pth
+!models/Resnet-3D_best.pth
 *.ckpt
 *.pkl
 *.joblib

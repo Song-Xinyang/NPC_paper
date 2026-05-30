@@ -1,10 +1,10 @@
 # NPC dual-virus MRI paper code
 
-This repository contains reproducible analysis code for the study:
+This repository contains the analysis code and trained model weights for the study:
 
 **HBV modifies EBV-associated systemic risk refined by multimodal MRI in nasopharyngeal carcinoma**
 
-The repository is code-complete and data-free. Protected patient-level clinical, imaging, survival and single-cell data are not included. Put de-identified inputs under `data/`, follow the schemas in `data/schemas/`, then edit `config/config.yaml` and `config/scRNA_config.yaml`.
+The repository is intended for paper code availability. It includes source code, configuration templates, environment files and the trained weights in `models/`. Protected patient-level clinical, imaging, survival and single-cell data are not included, and generated results/logs are intentionally omitted.
 
 ## Repository map
 
@@ -18,10 +18,7 @@ NPC_paper_code/
 |   |-- npcpaper/
 |   `-- scripts/
 |-- config/
-|-- data/
-|   `-- schemas/
 |-- models/
-|-- results/
 |-- run_all.sh
 |-- Makefile
 |-- environment.yml
@@ -50,13 +47,20 @@ bash run_all.sh full config/config.yaml config/scRNA_config.yaml
 bash run_all.sh demo
 ```
 
-The demo verifies the repository structure and the survival/modeling code. It does not reproduce manuscript values because the protected patient-level data, MRI volumes, segmentation masks, trained weights and metadata are not included.
+The demo verifies the repository structure and the survival/modeling code. It does not reproduce manuscript values because the protected patient-level data, MRI volumes, segmentation masks and metadata are not included.
+
+## Released weights
+
+The trained weights are stored with Git LFS under `models/`:
+
+- `models/nnNet_best.pth`
+- `models/Resnet-3D_best.pth`
 
 ## Data expected by the pipelines
 
 ### Clinical survival CSV
 
-See `data/schemas/clinical_schema.csv`. Required columns include:
+Required columns include:
 
 - `patient_id`
 - `cohort`: one of `train`, `internal`, `external`
@@ -67,7 +71,7 @@ See `data/schemas/clinical_schema.csv`. Required columns include:
 
 ### Imaging manifest CSV
 
-See `data/schemas/imaging_manifest_schema.csv`. Each row is one patient with paths to preprocessed or raw NIfTI files:
+Each row is one patient with paths to preprocessed or raw NIfTI files:
 
 - `patient_id`
 - `t1_path`, `t2_path`, `t1c_path`
@@ -76,7 +80,7 @@ See `data/schemas/imaging_manifest_schema.csv`. Each row is one patient with pat
 
 ### scRNA metadata CSV
 
-See `data/schemas/scRNA_metadata_schema.csv`. Required columns include:
+Required columns include:
 
 - `sample_id`, `patient_id`
 - `tenx_path`
@@ -100,7 +104,7 @@ See `data/schemas/scRNA_metadata_schema.csv`. Required columns include:
 
 ## Important notes
 
-1. The repository will not reproduce published values unless the original de-identified data, imaging files, segmentation masks, trained weights and metadata are placed in the expected locations.
+1. The repository will not reproduce published values unless the original de-identified data, imaging files, segmentation masks and metadata are placed in the expected locations.
 2. `nnU-Net v2` commands are wrapped rather than reimplemented. Install nnU-Net separately and set the required environment variables before running segmentation training or inference.
 3. MedicalNet pretrained weights are not redistributed here. Put the permitted checkpoint under `models/pretrained/` and set the path in `config/config.yaml`.
-4. Do not commit raw NIfTI files, raw 10x matrices, patient identifiers, trained weights or institutional documents unless release permissions explicitly allow it.
+4. Do not commit raw NIfTI files, raw 10x matrices, patient identifiers, additional generated checkpoints or institutional documents unless release permissions explicitly allow it.

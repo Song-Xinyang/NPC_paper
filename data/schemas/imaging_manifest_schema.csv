@@ -1,8 +1,0 @@
-column,required,type,description
-patient_id,yes,string,De-identified patient identifier shared with clinical table
-cohort,yes,string,Analysis split with values train internal or external
-t1_path,yes,path,Path to T1 NIfTI image for the patient
-t2_path,yes,path,Path to T2 NIfTI image for the patient
-t1c_path,yes,path,Path to contrast-enhanced T1 NIfTI image for the patient
-mask_path,yes,path,Path to manual tumor segmentation mask
-pred_mask_path,no,path,Path to predicted nnU-Net segmentation mask
