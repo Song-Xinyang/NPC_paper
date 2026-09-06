@@ -25,7 +25,32 @@ NPC_paper_code/
 `-- requirements.txt
 ```
 
-## One-click use
+## Lightweight demo and automatic checks
+
+The synthetic demo needs only Python 3.12 and the frozen analysis dependencies;
+it does not need Conda, R, MRI software, model weights or patient data.
+From the repository root (Bash; on Windows use Git Bash):
+
+```bash
+python -m venv .venv-demo
+source .venv-demo/bin/activate  # Windows Git Bash: source .venv-demo/Scripts/activate
+python -m pip install -r requirements/demo/requirements.txt
+python -m pip check
+bash run_all.sh demo
+```
+
+The demo generates synthetic inputs, runs interaction/threshold analyses and
+LASSO Cox modeling, and checks the resulting patient scores and cohort summaries.
+GitHub Actions runs this same command for pull requests and changes to `master`.
+It does not reproduce manuscript values. See [maintenance and environment status](MAINTENANCE.md)
+for snapshot provenance, dependency updates and the limits of CI coverage.
+
+## Full research workflow
+
+`environment.yml`, root `requirements.txt` and the R package installer describe
+the research environment but are not a validated lock of the published analysis.
+The demo dependency snapshot covers only the demo. Capture and validate the full
+environment on the research machine before relying on it for reproduction.
 
 ### 1. Create the conda environment
 
@@ -40,14 +65,6 @@ Rscript R/scripts/00_install_packages.R
 ```bash
 bash run_all.sh full config/config.yaml config/scRNA_config.yaml
 ```
-
-### 3. Run a lightweight demo with synthetic data
-
-```bash
-bash run_all.sh demo
-```
-
-The demo verifies the repository structure and the survival/modeling code. It does not reproduce manuscript values because the protected patient-level data, MRI volumes, segmentation masks and metadata are not included.
 
 ## Released weights
 

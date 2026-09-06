@@ -16,6 +16,7 @@ if [[ "$MODE" == "demo" ]]; then
   echo "[demo] Running LASSO Cox prognostic models..."
   python python/scripts/11_lasso_cox_models.py --config config/demo_config.yaml
   python python/scripts/12_evaluate_models.py --config config/demo_config.yaml
+  python python/scripts/14_verify_demo.py
   echo "[demo] Done."
 elif [[ "$MODE" == "full" ]]; then
   echo "[full] Running MRI preprocessing..."

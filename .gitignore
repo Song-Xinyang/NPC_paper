@@ -32,3 +32,4 @@ models/*
 .RData
 __pycache__/
 *.pyc
+.venv*/
