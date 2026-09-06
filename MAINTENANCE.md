@@ -12,9 +12,8 @@ wording, line counts or a prescribed number of commands.
   `requirements.txt` beside it pins the installed Python runtime dependencies
   (pip and build tooling are outside this snapshot).
   The snapshot was installed and the demo was exercised on Windows with Python
-  3.12.14. The new CI uses Ubuntu 24.04 and Python 3.12; its first remote run is
-  still needed to confirm that platform. OS libraries and Python patch versions
-  are outside this package snapshot.
+  3.12.14. CI validates the same snapshot on Ubuntu 24.04 and Python 3.12.
+  OS libraries and Python patch versions are outside this package snapshot.
 - The demo uses 90 synthetic patients, two-fold CV and five bootstrap iterations.
   It checks finite patient scores, cohort/endpoint coverage, C-indices in [0, 1]
   and generated survival plots. Those checks demonstrate executable code, not
