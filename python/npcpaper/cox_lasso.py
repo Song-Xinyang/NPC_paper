@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
-from lifelines.utils import concordance_index
-from sklearn.model_selection import KFold
+from lifelines.exceptions import ConvergenceError
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 import joblib
 
@@ -25,8 +25,20 @@ class LassoCoxModel:
     cox_model: CoxPHFitter
     penalty: float
     training_median_cutoff: float
+    category_levels: dict | None = None
 
     def predict_score(self, df: pd.DataFrame) -> pd.Series:
+        if getattr(self, "category_levels", None) is not None:
+            valid = df[self.clinical_cols + self.feature_cols].replace([np.inf, -np.inf], np.nan).notna().all(axis=1)
+            valid &= supported_categories(df, self.category_levels)
+            scores = pd.Series(np.nan, index=df.index, name=f"score_{self.endpoint}")
+            if valid.any():
+                raw = encode_matrix(df.loc[valid], self.feature_cols, self.clinical_cols, self.category_levels)
+                scaled = self.scaler.transform(raw[self.matrix_cols])
+                design = pd.DataFrame(scaled, index=raw.index, columns=self.matrix_cols)
+                scores.loc[valid] = design[self.selected_cols] @ self.cox_model.params_.loc[self.selected_cols]
+            return scores
+        # Keep the input representation of previously serialized models.
         X_raw = prepare_raw_matrix(df, self.feature_cols, self.clinical_cols)
         for c in self.matrix_cols:
             if c not in X_raw.columns:
@@ -89,7 +101,7 @@ def univariable_screen(
     if not rows:
         return pd.DataFrame(columns=["feature", "coef", "hr", "p"])
     res = pd.DataFrame(rows).sort_values("p")
-    return res[res["p"] <= p_threshold]
+    return res[res["p"] < p_threshold]
 
 
 def remove_correlated_features(df: pd.DataFrame, features: list[str], ranking: pd.DataFrame, threshold: float = 0.90) -> list[str]:
@@ -112,37 +124,102 @@ def remove_correlated_features(df: pd.DataFrame, features: list[str], ranking: p
     return [f for f in features if f in keep]
 
 
-def _cv_score_for_penalty(
-    X: pd.DataFrame,
-    y_time: pd.Series,
-    y_event: pd.Series,
-    penalty: float,
-    clinical_cols_expanded: list[str],
-    n_splits: int,
-    seed: int,
-) -> tuple[float, float]:
-    if len(X) < 2:
-        return np.nan, np.nan
-    n_splits = min(max(2, n_splits), len(X))
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    scores = []
-    for tr, va in kf.split(X):
-        train = X.iloc[tr].copy()
-        valid = X.iloc[va].copy()
-        train["time"] = y_time.iloc[tr].values
-        train["event"] = y_event.iloc[tr].values
-        penalizer = np.array([0.0 if c in clinical_cols_expanded else penalty for c in X.columns])
-        try:
-            cph = CoxPHFitter(penalizer=penalizer, l1_ratio=1.0)
-            cph.fit(train, "time", "event", show_progress=False)
-            pred = np.dot(valid.values, cph.params_.loc[X.columns].values)
-            scores.append(concordance_index(y_time.iloc[va], -pred, y_event.iloc[va]))
-        except Exception:
-            scores.append(np.nan)
-    finite = np.isfinite(scores)
-    if not finite.any():
-        return np.nan, np.nan
-    return float(np.nanmean(scores)), float(np.nanstd(scores) / np.sqrt(finite.sum()))
+def supported_categories(df, levels):
+    """A coefficient cannot be estimated for a category absent from training."""
+    supported = pd.Series(True, index=df.index)
+    for col, categories in levels.items():
+        supported &= df[col].isin(categories)
+    return supported
+
+
+def encode_matrix(df, features, clinical, levels):
+    """Apply the training fold's category levels and reference categories."""
+    data = df[features + clinical].copy()
+    for col, categories in levels.items():
+        data[col] = pd.Categorical(data[col], categories=categories)
+    return pd.get_dummies(data, columns=list(levels), drop_first=True, dtype=float).astype(float)
+
+
+def _fit_design(train, time_col, event_col, features, clinical, categorical, p_threshold, corr_threshold):
+    screen = univariable_screen(train, time_col, event_col, features, p_threshold)
+    reduced = remove_correlated_features(train, list(screen["feature"]), screen, corr_threshold)
+    levels = {col: pd.Categorical(train[col]).categories.tolist() for col in clinical
+              if col in categorical or not pd.api.types.is_numeric_dtype(train[col])}
+    raw = encode_matrix(train, reduced, clinical, levels)
+    raw = raw.loc[:, raw.nunique() > 1]
+    if raw.empty:
+        raise ValueError("No estimable clinical predictors or screened imaging features remain.")
+    scaler = StandardScaler().fit(raw)
+    design = pd.DataFrame(scaler.transform(raw), index=train.index, columns=raw.columns)
+    design[time_col] = train[time_col]
+    design[event_col] = train[event_col]
+    return design, reduced, levels, scaler, screen
+
+
+def _fit_penalized(frame, time_col, event_col, features, penalty):
+    # Prespecified clinical terms have zero L1 penalty.
+    cols = frame.columns.drop([time_col, event_col])
+    weights = np.where(cols.isin(features), penalty, 0.0)
+    return CoxPHFitter(penalizer=weights, l1_ratio=1.0).fit(frame, time_col, event_col)
+
+
+def _select_penalty(train, time_col, event_col, features, clinical, categorical,
+                    p_threshold, corr_threshold, penalties, n_folds, rule, seed):
+    event = train[event_col]
+    n_splits = min(n_folds, int(event.sum()), len(train))
+    if n_splits < 2:
+        raise ValueError("Cross-validation requires at least two folds containing events.")
+    split = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    losses = {penalty: [] for penalty in penalties}
+    unsupported_rows = []
+    for train_idx, valid_idx in split.split(train, event):
+        training, held_out = train.iloc[train_idx], train.iloc[valid_idx]
+        design, reduced, levels, scaler, _ = _fit_design(
+            training, time_col, event_col, features, clinical, categorical, p_threshold, corr_threshold
+        )
+        # Never encode a previously unseen disease stage as the training reference.
+        supported = supported_categories(held_out, levels)
+        unsupported_rows.append(int((~supported).sum()))
+        held_out = held_out.loc[supported]
+        if not held_out[event_col].any():
+            raise ValueError("A validation fold has no events with estimable clinical categories. "
+                             "Review rare levels and the fold count.")
+        # Apply the fold's feature selection, coding and scale before computing held-out loss.
+        cols = list(scaler.feature_names_in_)
+        raw = encode_matrix(held_out, reduced, clinical, levels)
+        valid = pd.DataFrame(scaler.transform(raw[cols]), index=held_out.index, columns=cols)
+        valid[[time_col, event_col]] = held_out[[time_col, event_col]]
+        joined = pd.concat([design, valid], ignore_index=True)
+        for penalty, fold_losses in losses.items():
+            try:
+                cph = _fit_penalized(design, time_col, event_col, reduced, penalty)
+                # Grouped CV uses risk sets from the full cohort: subtract the training
+                # partial log-likelihood evaluated at the very same fold coefficients.
+                full_ll = len(joined) * cph.score(joined, scoring_method="log_likelihood")
+                train_ll = len(design) * cph.score(design, scoring_method="log_likelihood")
+                fold_losses.append(-2.0 * (full_ll - train_ll) / valid[event_col].sum())
+            except (ConvergenceError, ValueError, np.linalg.LinAlgError, FloatingPointError):
+                fold_losses.append(np.nan)
+    rows = []
+    for penalty, fold_losses in losses.items():
+        valid_folds = int(np.isfinite(fold_losses).sum())
+        complete = valid_folds == n_splits
+        rows.append({"penalty": penalty, "mean_deviance": np.mean(fold_losses) if complete else np.nan,
+                     "se": np.std(fold_losses, ddof=1) / np.sqrt(n_splits) if complete else np.nan,
+                     "valid_folds": valid_folds, "total_folds": n_splits,
+                     "cv_rows_with_unseen_categories": sum(unsupported_rows),
+                     **{f"fold_{i}_deviance": loss for i, loss in enumerate(fold_losses, 1)}})
+    cv = pd.DataFrame(rows).sort_values("penalty")
+    if not cv["mean_deviance"].notna().any():
+        raise ValueError("No penalty produced finite partial-likelihood deviance in every fold.")
+    best = cv.loc[cv["mean_deviance"].idxmin()]
+    if rule == "1se":
+        eligible = cv["mean_deviance"] <= best["mean_deviance"] + best["se"]
+        penalty = cv.loc[eligible, "penalty"].max()
+    else:
+        penalty = best["penalty"]
+    cv["selected"] = cv["penalty"] == penalty
+    return float(penalty), cv
 
 
 def fit_lasso_cox(
@@ -158,62 +235,43 @@ def fit_lasso_cox(
     n_folds: int = 10,
     selection_rule: str = "1se",
     seed: int = 1234,
+    categorical_clinical_cols: list[str] | None = None,
+    final_ridge_penalty: float = 0.001,
 ) -> LassoCoxModel:
-    if penalty_grid is None:
-        penalty_grid = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
-    screen = univariable_screen(df_train, time_col, event_col, feature_cols, univariable_p_threshold)
-    screened = list(screen["feature"])
-    if not screened:
-        screened = feature_cols[: min(50, len(feature_cols))]
-    reduced = remove_correlated_features(df_train, screened, screen if not screen.empty else pd.DataFrame({"feature": screened, "p": 1.0}), correlation_threshold)
-    X, scaler = prepare_matrix(df_train, reduced, clinical_cols, fit_scaler=True)
-    y_time = df_train[time_col].reset_index(drop=True)
-    y_event = df_train[event_col].reset_index(drop=True)
-    X = X.reset_index(drop=True)
-    expanded_clinical = [c for c in X.columns if not c in reduced]
-    cv_rows = []
-    for pen in penalty_grid:
-        mean, se = _cv_score_for_penalty(X, y_time, y_event, pen, expanded_clinical, n_folds, seed)
-        cv_rows.append({"penalty": pen, "mean_cindex": mean, "se": se})
-    cv = pd.DataFrame(cv_rows).sort_values("penalty")
-    if cv["mean_cindex"].dropna().empty:
-        cv["mean_cindex"] = cv["mean_cindex"].fillna(0.5)
-        cv["se"] = cv["se"].fillna(0.0)
-    best_idx = cv["mean_cindex"].idxmax()
-    if selection_rule.lower() == "1se":
-        best = cv.loc[best_idx]
-        eligible = cv[cv["mean_cindex"] >= best["mean_cindex"] - best["se"]]
-        penalty = float(eligible["penalty"].max())
-    else:
-        penalty = float(cv.loc[best_idx, "penalty"])
-    train_fit = X.copy()
-    train_fit["time"] = y_time.values
-    train_fit["event"] = y_event.values
-    penalizer = np.array([0.0 if c in expanded_clinical else penalty for c in X.columns])
-    cph = CoxPHFitter(penalizer=penalizer, l1_ratio=1.0)
-    cph.fit(train_fit, "time", "event", show_progress=False)
-    coefs = cph.params_.loc[X.columns]
-    selected = [c for c, v in coefs.items() if abs(float(v)) > 1e-8]
+    penalties = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0] if penalty_grid is None else penalty_grid
+    if not len(penalties) or not np.isfinite(penalties).all() or min(penalties) < 0:
+        raise ValueError("The Cox penalty grid must contain finite, nonnegative values.")
+    if selection_rule.lower() not in ("min", "1se"):
+        raise ValueError("selection_rule must be 'min' or '1se'")
+    categorical = set(categorical_clinical_cols or ())
+    if not categorical.issubset(clinical_cols):
+        raise ValueError("Categorical terms must also be included in the clinical covariates.")
+    required = [time_col, event_col, *clinical_cols]
+    train = df_train.replace([np.inf, -np.inf], np.nan).dropna(subset=required).reset_index(drop=True)
+    if not train[event_col].isin([0, 1]).all() or (train[time_col] < 0).any():
+        raise ValueError("Cox inputs require binary event indicators and nonnegative event times.")
+    if train[feature_cols].isna().any().any():
+        raise ValueError("The imaging cohort requires complete candidate feature measurements.")
+    penalty, cv = _select_penalty(
+        train, time_col, event_col, feature_cols, clinical_cols, categorical, univariable_p_threshold,
+        correlation_threshold, penalties, n_folds, selection_rule.lower(), seed
+    )
+    design, reduced, levels, scaler, screen = _fit_design(
+        train, time_col, event_col, feature_cols, clinical_cols, categorical,
+        univariable_p_threshold, correlation_threshold
+    )
+    selection_fit = _fit_penalized(design, time_col, event_col, reduced, penalty)
+    # lifelines smooths the L1 penalty. Treat numerical residue as zero on the standardized scale.
+    selected = [col for col, beta in selection_fit.params_.items() if col not in reduced or abs(beta) > 1e-6]
     if not selected:
-        selected = list(coefs.abs().sort_values(ascending=False).head(5).index)
-    train_sel = X[selected].copy()
-    train_sel["time"] = y_time.values
-    train_sel["event"] = y_event.values
-    cph2 = CoxPHFitter(penalizer=0.001)
-    cph2.fit(train_sel, "time", "event")
-    scores = np.dot(X[selected].values, cph2.params_.loc[selected].values)
+        raise ValueError("The selected penalty retained no estimable coefficients.")
+    post_selection = CoxPHFitter(penalizer=final_ridge_penalty).fit(design[selected + [time_col, event_col]], time_col, event_col)
+    scores = design[selected] @ post_selection.params_.loc[selected]
     model = LassoCoxModel(
-        endpoint=endpoint,
-        time_col=time_col,
-        event_col=event_col,
-        feature_cols=reduced,
-        clinical_cols=clinical_cols,
-        selected_cols=selected,
-        matrix_cols=list(X.columns),
-        scaler=scaler,
-        cox_model=cph2,
-        penalty=penalty,
-        training_median_cutoff=float(np.median(scores)),
+        endpoint=endpoint, time_col=time_col, event_col=event_col,
+        feature_cols=reduced, clinical_cols=clinical_cols, selected_cols=selected,
+        matrix_cols=list(scaler.feature_names_in_), scaler=scaler, cox_model=post_selection,
+        penalty=penalty, training_median_cutoff=float(np.median(scores)), category_levels=levels,
     )
     model.cv_table = cv
     model.univariable_screen = screen

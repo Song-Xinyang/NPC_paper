@@ -45,9 +45,9 @@ cell_types:
 
 pseudobulk:
   group_col: hbsag_group
-  positive_label: HBV
-  negative_label: non_HBV
-  method: edgeR_QLF
+  positive_label: HBsAg-positive
+  negative_label: HBsAg-negative
+  method: DESeq2
   fdr_threshold: 0.05
   genes_of_interest: [PDCD1, CTLA4, HAVCR2, LAG3, TIGIT, BTLA, KLRG1, TOX, EOMES, CXCL13, IFNG, GZMB, PRF1, NKG7]
 

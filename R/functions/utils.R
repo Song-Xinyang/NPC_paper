@@ -40,12 +40,15 @@ safe_write_csv <- function(x, path) {
   invisible(path)
 }
 
-add_hbsag_group <- function(meta, hbsag_col = "hbsag") {
-  meta %>%
-    mutate(
-      hbsag_numeric = as.integer(.data[[hbsag_col]]),
-      hbsag_group = ifelse(hbsag_numeric == 1, "HBV", "non_HBV")
-    )
+add_hbsag_group <- function(meta, hbsag_col = "hbsag", negative_label = "HBsAg-negative",
+                            positive_label = "HBsAg-positive") {
+  status <- as.character(meta[[hbsag_col]])
+  if (length(status) != nrow(meta) || any(!status %in% c("0", "1"))) {
+    stop("Expected recorded HBsAg status coded as 0 or 1 for each donor.")
+  }
+  meta$hbsag_numeric <- as.integer(status)
+  meta$hbsag_group <- ifelse(meta$hbsag_numeric == 1L, positive_label, negative_label)
+  meta
 }
 
 read_10x_any <- function(path) {

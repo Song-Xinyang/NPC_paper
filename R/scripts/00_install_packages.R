@@ -19,7 +19,7 @@ if (length(missing_cran) > 0) {
   install.packages(missing_cran, repos = "https://cloud.r-project.org")
 }
 
-bioc_packages <- c("edgeR", "clusterProfiler", "org.Hs.eg.db")
+bioc_packages <- c("DESeq2", "clusterProfiler", "org.Hs.eg.db")
 missing_bioc <- bioc_packages[!vapply(bioc_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_bioc) > 0) {
   BiocManager::install(missing_bioc, ask = FALSE, update = FALSE)

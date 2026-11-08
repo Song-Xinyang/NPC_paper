@@ -15,16 +15,22 @@ plot_scRNA_outputs <- function(obj, de_all, go, corr_result, cfg) {
     ggsave(file.path(outdir, "figures", "Fig6c_marker_heatmap.png"), p3, width = 10, height = 8, dpi = 300)
   }
 
-  focus_path <- file.path(outdir, "05_pseudobulk_DE_exhaustion_cytotoxic_genes.csv")
-  if (file.exists(focus_path)) {
-    focus <- readr::read_csv(focus_path, show_col_types = FALSE)
+  shown_genes <- unlist(get_cfg(cfg, c("pseudobulk", "genes_of_interest"), as.list(immune_genes_of_interest_default)))
+  focus <- de_all %>% filter(gene %in% shown_genes, is.finite(log2FoldChange))
+  if (nrow(focus) > 0) {
     focus$gene_class <- ifelse(focus$gene %in% exhaustion_genes_default, "Checkpoint/Dysfunction", "Cytotoxicity")
+    focus$stars <- case_when(is.na(focus$padj) ~ "", focus$padj < 0.01 ~ "**",
+                             focus$padj < 0.05 ~ "*", TRUE ~ "")
     p4 <- focus %>%
       filter(cell_type %in% c("CD4+ T", "CD8+ T", "NK cell", "Proliferating T")) %>%
       ggplot(aes(x = log2FoldChange, y = gene, fill = gene_class)) +
       geom_col() +
+      geom_text(aes(label = stars, hjust = ifelse(log2FoldChange >= 0, -0.15, 1.15))) +
+      scale_x_continuous(expand = expansion(mult = c(0.14, 0.14))) +
       facet_wrap(~cell_type, scales = "free_y") +
-      theme_bw() + xlab("log2 fold change (HBV vs non-HBV)") + ylab(NULL)
+      theme_bw() + theme(axis.text.y = element_text(face = "italic")) +
+      labs(x = "log2 fold change (HBsAg-positive vs HBsAg-negative)", y = NULL, fill = "Gene class",
+                        caption = "* BH-adjusted P < 0.05; ** BH-adjusted P < 0.01")
     ggsave(file.path(outdir, "figures", "Fig6d_exhaustion_cytotoxic_barplot.png"), p4, width = 12, height = 6, dpi = 300)
   }
 
@@ -42,7 +48,8 @@ plot_scRNA_outputs <- function(obj, de_all, go, corr_result, cfg) {
   if (!is.null(corr) && nrow(corr) > 0) {
     mat <- corr %>% filter(signature == "exhaustion_score") %>% select(lymphocyte_subset, imaging_feature, rho) %>%
       tidyr::pivot_wider(names_from = imaging_feature, values_from = rho) %>% tibble::column_to_rownames("lymphocyte_subset") %>% as.matrix()
-    png(file.path(outdir, "figures", "Fig6f_image_exhaustion_correlation_heatmap.png"), width = 1600, height = 1000, res = 200)
+    # This signature-level plot is an exploratory output distinct from the archived gene-level heatmap.
+    png(file.path(outdir, "figures", "exploratory_signature_correlations.png"), width = 1600, height = 1000, res = 200)
     pheatmap::pheatmap(mat, cluster_rows = FALSE, cluster_cols = FALSE, main = "Spearman rho: imaging features vs exhaustion score")
     dev.off()
   }

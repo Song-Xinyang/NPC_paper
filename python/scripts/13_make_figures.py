@@ -24,7 +24,7 @@ def main():
     locked = cfg['clinical'].get('locked_ebv_cutoff', 6020.0)
     if scan_path.exists():
         plot_threshold_scan(pd.read_csv(scan_path), locked, outdir / f'Figure_threshold_{ep}.png')
-    if boot_path.exists():
+    if cfg['clinical']['threshold_scan']['mode'] == 'demo_scan' and boot_path.exists():
         plot_bootstrap_thresholds(pd.read_csv(boot_path), locked, outdir / f'Figure_bootstrap_threshold_{ep}.png')
     print('Figure generation complete.')
 

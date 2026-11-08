@@ -11,7 +11,9 @@ load_and_qc_scRNA <- function(cfg) {
     cutoff <- as.numeric(get_cfg(cfg, c("filtering", "locked_ebv_cutoff"), 6020))
     meta <- meta %>% filter(.data[[ebv_col]] >= cutoff)
   }
-  meta <- add_hbsag_group(meta, hbsag_col)
+  negative_label <- get_cfg(cfg, c("pseudobulk", "negative_label"), "HBsAg-negative")
+  positive_label <- get_cfg(cfg, c("pseudobulk", "positive_label"), "HBsAg-positive")
+  meta <- add_hbsag_group(meta, hbsag_col, negative_label, positive_label)
   objects <- list()
   for (i in seq_len(nrow(meta))) {
     sample_id <- as.character(meta[[sample_col]][i])
@@ -26,8 +28,8 @@ load_and_qc_scRNA <- function(cfg) {
     )
     obj$sample_id <- sample_id
     obj$patient_id <- as.character(meta[[patient_col]][i])
-    obj$hbsag <- as.integer(meta[[hbsag_col]][i])
-    obj$hbsag_group <- ifelse(obj$hbsag == 1, "HBV", "non_HBV")
+    obj$hbsag <- meta$hbsag_numeric[i]
+    obj$hbsag_group <- meta$hbsag_group[i]
     obj$ebv_dna <- as.numeric(meta[[ebv_col]][i])
     batch_col <- get_cfg(cfg, c("columns", "batch"), "batch")
     obj$batch <- if (batch_col %in% colnames(meta)) as.character(meta[[batch_col]][i]) else sample_id

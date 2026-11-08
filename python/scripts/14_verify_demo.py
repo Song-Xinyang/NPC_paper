@@ -30,6 +30,19 @@ def main():
     assert (summary["n"] == summary["cohort"].map(cohort_sizes)).all()
     for ep, cohort in expected:
         assert (outdir / f"KM_{ep}_{cohort}.png").stat().st_size > 0
+    for ep in endpoints:
+        cv = pd.read_csv(outdir / f"{ep}_lasso_cv.csv")
+        folds = [c for c in cv if c.startswith("fold_") and c.endswith("_deviance")]
+        complete = cv.dropna(subset=["mean_deviance"])
+        assert len(folds) == cfg["modeling"]["lasso_cv_folds"] and not complete.empty
+        assert np.allclose(complete["mean_deviance"], complete[folds].mean(axis=1))
+        assert np.allclose(complete["se"], complete[folds].std(axis=1) / np.sqrt(len(folds)))
+        best = complete.loc[complete["mean_deviance"].idxmin()]
+        chosen = best["penalty"]
+        if cfg["modeling"].get("lasso_selection_rule", "1se") == "1se":
+            within_se = complete["mean_deviance"] <= best["mean_deviance"] + best["se"]
+            chosen = complete.loc[within_se, "penalty"].max()
+        assert cv.loc[cv["selected"], "penalty"].item() == chosen
     print(f"Verified {len(scores)} synthetic patients and {len(summary)} endpoint/cohort evaluations.")
 
 

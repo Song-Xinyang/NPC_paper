@@ -11,9 +11,12 @@ from lifelines.utils import concordance_index
 
 def c_index(df: pd.DataFrame, time_col: str, event_col: str, score_col: str) -> float:
     dat = df[[time_col, event_col, score_col]].replace([np.inf, -np.inf], np.nan).dropna()
-    if dat.empty or dat[event_col].nunique() < 2:
+    if dat.empty or not dat[event_col].any():
         return np.nan
-    return float(concordance_index(dat[time_col], -dat[score_col], dat[event_col]))
+    try:
+        return float(concordance_index(dat[time_col], -dat[score_col], dat[event_col]))
+    except ZeroDivisionError:  # No orderable pair.
+        return np.nan
 
 
 def bootstrap_c_index(
@@ -28,17 +31,19 @@ def bootstrap_c_index(
     vals = []
     dat = df[[time_col, event_col, score_col]].dropna().reset_index(drop=True)
     n = dat.shape[0]
-    if n == 0:
+    observed = c_index(dat, time_col, event_col, score_col)
+    if not np.isfinite(observed):
         return np.nan, np.nan, np.nan
     for _ in range(n_bootstrap):
         idx = rng.choice(n, size=n, replace=True)
         b = dat.iloc[idx]
-        if b[event_col].nunique() > 1:
-            vals.append(c_index(b, time_col, event_col, score_col))
+        value = c_index(b, time_col, event_col, score_col)
+        if np.isfinite(value):
+            vals.append(value)
     vals = np.array(vals)
     if vals.size == 0:
-        return np.nan, np.nan, np.nan
-    return float(np.nanmean(vals)), float(np.nanquantile(vals, 0.025)), float(np.nanquantile(vals, 0.975))
+        return observed, np.nan, np.nan
+    return observed, float(np.quantile(vals, 0.025)), float(np.quantile(vals, 0.975))
 
 
 def training_median_cutoff(df_train: pd.DataFrame, score_col: str) -> float:
@@ -48,11 +53,13 @@ def training_median_cutoff(df_train: pd.DataFrame, score_col: str) -> float:
 def assign_risk_group(df: pd.DataFrame, score_col: str, cutoff: float) -> pd.DataFrame:
     out = df.copy()
     out["risk_group"] = np.where(out[score_col] >= cutoff, "High Risk", "Low Risk")
+    out.loc[~np.isfinite(out[score_col]), "risk_group"] = None
     return out
 
 
 def km_summary(df: pd.DataFrame, time_col: str, event_col: str, group_col: str = "risk_group") -> dict[str, float | int]:
-    groups = list(df[group_col].dropna().unique())
+    df = df.dropna(subset=[group_col, time_col, event_col])
+    groups = list(df[group_col].unique())
     res: dict[str, float | int] = {"n": int(df.shape[0]), "events": int(df[event_col].sum())}
     if len(groups) == 2:
         a, b = groups

@@ -18,8 +18,7 @@ def main():
     cfg = load_config(args.config)
     clinical = pd.read_csv(cfg['inputs']['clinical_csv'])
     c = cfg['clinical']
-    if c.get('cohort_col') in clinical.columns:
-        clinical = clinical[clinical[c['cohort_col']].isin([c.get('train_label', 'train'), c.get('internal_label', 'internal')])].copy()
+    clinical = clinical[clinical[c['cohort_col']].isin([c.get('train_label', 'train'), c.get('internal_label', 'internal')])].copy()
     outdir = ensure_dir(Path(cfg['project']['output_dir']) / 'interaction')
     res = run_interaction_analysis(
         clinical=clinical,
