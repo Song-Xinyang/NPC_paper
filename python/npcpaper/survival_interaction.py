@@ -20,9 +20,12 @@ class InteractionResult:
     p_interaction: float
 
 
-def add_ebv_terms(df: pd.DataFrame, ebv_col: str, hbsag_col: str, out_col: str = "log10_ebv_plus1") -> pd.DataFrame:
+def add_ebv_terms(df: pd.DataFrame, ebv_col: str, hbsag_col: str, out_col: str = "ln_ebv_1000_plus1") -> pd.DataFrame:
     out = df.copy()
-    out[out_col] = np.log10(pd.to_numeric(out[ebv_col], errors="coerce").fillna(0).clip(lower=0) + 1.0)
+    ebv = pd.to_numeric(out[ebv_col], errors="raise")
+    if (ebv < 0).any():
+        raise ValueError("EBV DNA must be nonnegative and measured in copies/mL.")
+    out[out_col] = np.log1p(ebv / 1000.0)
     out[hbsag_col] = pd.to_numeric(out[hbsag_col], errors="coerce").astype(float)
     out["ebv_hbsag_interaction"] = out[out_col] * out[hbsag_col]
     return out
@@ -37,8 +40,9 @@ def _prepare_design(
 ) -> pd.DataFrame:
     keep = [time_col, event_col, *terms, *covariates]
     dat = df.loc[:, keep].copy()
-    dat = pd.get_dummies(dat, columns=[c for c in covariates if dat[c].dtype == "object"], drop_first=True)
     dat = dat.replace([np.inf, -np.inf], np.nan).dropna()
+    categorical = [c for c in covariates if c == "ajcc_stage" or not pd.api.types.is_numeric_dtype(dat[c])]
+    dat = pd.get_dummies(dat, columns=categorical, drop_first=True, dtype=float)
     dat[event_col] = dat[event_col].astype(int)
     return dat
 
@@ -59,7 +63,7 @@ def fit_interaction_model(
         time_col=time_col,
         event_col=event_col,
         covariates=covariates,
-        terms=["log10_ebv_plus1", hbsag_col, "ebv_hbsag_interaction"],
+        terms=["ln_ebv_1000_plus1", hbsag_col, "ebv_hbsag_interaction"],
     )
     cph = CoxPHFitter(penalizer=penalizer)
     cph.fit(dat, duration_col=time_col, event_col=event_col)
@@ -92,34 +96,18 @@ def estimate_hr_trajectories(
     The baseline row uses median numeric covariates and modal categorical covariates.
     Hazards are normalized to the HBsAg-negative row at median EBV DNA.
     """
-    ebv_vals = np.linspace(float(df[ebv_col].min()), float(df[ebv_col].quantile(0.99)), n_grid)
-    base = {}
-    for c in covariates:
-        if pd.api.types.is_numeric_dtype(df[c]):
-            base[c] = float(df[c].median())
-        else:
-            base[c] = df[c].mode(dropna=True).iloc[0]
+    observed = df[[ebv_col, hbsag_col, time_col, event_col, *covariates]].dropna()
+    ebv_vals = np.linspace(observed[ebv_col].min(), observed[ebv_col].quantile(0.99), n_grid)
+    # All covariates are held at common values, so their coefficients cancel in the log HR.
+    beta = model.params_
+    ref = np.log1p(observed[ebv_col].median() / 1000.0)
     rows = []
     for h in [0, 1]:
         for ebv in ebv_vals:
-            r = dict(base)
-            r[time_col] = 1.0
-            r[event_col] = 0
-            r["log10_ebv_plus1"] = np.log10(max(ebv, 0) + 1.0)
-            r[hbsag_col] = h
-            r["ebv_hbsag_interaction"] = r["log10_ebv_plus1"] * h
-            rows.append({"ebv_dna": ebv, "hbsag": h, **r})
-    pred = pd.DataFrame(rows)
-    pred_design = pd.get_dummies(pred.drop(columns=["ebv_dna", "hbsag"]), drop_first=True)
-    for col in model.params_.index:
-        if col not in pred_design.columns:
-            pred_design[col] = 0
-    pred_design = pred_design[model.params_.index]
-    log_h = np.dot(pred_design.values, model.params_.values)
-    ref_idx = np.argmin(np.abs(pred["ebv_dna"].values - np.median(df[ebv_col].values)))
-    ref_log_h = log_h[ref_idx]
-    pred["hazard_ratio"] = np.exp(log_h - ref_log_h)
-    return pred[["ebv_dna", "hbsag", "hazard_ratio"]]
+            x = np.log1p(ebv / 1000.0)
+            log_hr = beta["ln_ebv_1000_plus1"] * (x - ref) + h * (beta[hbsag_col] + x * beta["ebv_hbsag_interaction"])
+            rows.append({"ebv_dna": ebv, "hbsag": h, "hazard_ratio": np.exp(log_hr)})
+    return pd.DataFrame(rows)
 
 
 def run_interaction_analysis(
@@ -134,8 +122,14 @@ def run_interaction_analysis(
     outdir.mkdir(parents=True, exist_ok=True)
     rows = []
     for endpoint, cols in endpoints.items():
+        cohort = clinical
+        if endpoint in ("dmfs", "lrrfs"):
+            cohort = clinical.copy()
+            os_cols = endpoints["os"]
+            competing = cohort[cols["event"]].eq(0) & cohort[os_cols["event"]].eq(1)
+            cohort.loc[competing, cols["time"]] = cohort.loc[competing, [cols["time"], os_cols["time"]]].min(axis=1, skipna=False)
         result, model, dat = fit_interaction_model(
-            clinical,
+            cohort,
             endpoint=endpoint,
             time_col=cols["time"],
             event_col=cols["event"],
@@ -147,7 +141,7 @@ def run_interaction_analysis(
         model.summary.to_csv(outdir / f"cox_interaction_{endpoint}.csv")
         traj = estimate_hr_trajectories(
             model,
-            clinical,
+            cohort,
             ebv_col=ebv_col,
             hbsag_col=hbsag_col,
             covariates=covariates,

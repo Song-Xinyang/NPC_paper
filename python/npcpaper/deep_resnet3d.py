@@ -105,7 +105,10 @@ def cox_partial_likelihood_loss(risk: torch.Tensor, time: torch.Tensor, event: t
     order = torch.argsort(time, descending=True)
     risk = risk[order]
     event = event[order].float()
-    log_cumsum_hazard = torch.logcumsumexp(risk, dim=0)
+    sorted_time = time[order]
+    _, counts = torch.unique_consecutive(sorted_time, return_counts=True)
+    # All failures tied at a given time share the same Breslow risk set.
+    log_cumsum_hazard = torch.logcumsumexp(risk, dim=0)[counts.cumsum(0) - 1].repeat_interleave(counts)
     uncensored = event == 1
     if uncensored.sum() == 0:
         return torch.tensor(0.0, device=risk.device, requires_grad=True)

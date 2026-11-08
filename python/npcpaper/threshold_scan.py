@@ -6,6 +6,34 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
+from lifelines.exceptions import ConvergenceError
+
+
+def reconstruct_discovery_grid(df, time_col, event_col, ebv_col, hbsag_col):
+    """Reconstruct the published DMFS grid from historical Group I times and EBV in copies/mL."""
+    grid = np.arange(10, 100_001, 10)
+    result = pd.DataFrame({"cutoff": grid})
+    data = df[[time_col, event_col, ebv_col, hbsag_col]].apply(pd.to_numeric, errors="raise").dropna()
+    if not data[event_col].isin([0, 1]).all() or not data[hbsag_col].isin([0, 1]).all():
+        raise ValueError("DMFS event status and HBsAg status must be binary.")
+    if (data[ebv_col] < 0).any() or (data[time_col] < 0).any():
+        raise ValueError("EBV concentration and follow-up time must be nonnegative.")
+    for hbsag, label in [(0, "negative"), (1, "positive")]:
+        group = data.loc[data[hbsag_col].eq(hbsag)].sort_values(ebv_col).reset_index(drop=True)
+        partitions = np.searchsorted(group[ebv_col], grid, side="right")
+        hazard_ratios = {}
+        for n_low in np.unique(partitions):
+            hazard_ratios[n_low] = np.nan
+            if n_low == 0 or n_low == len(group):
+                continue
+            fit_data = group[[time_col, event_col]].assign(high=(group.index >= n_low).astype(int))
+            try:
+                fit = CoxPHFitter(penalizer=0.01).fit(fit_data, duration_col=time_col, event_col=event_col)
+            except ConvergenceError:
+                continue
+            hazard_ratios[n_low] = float(np.exp(fit.params_["high"]))
+        result[f"hr_hbsag_{label}"] = pd.Series(partitions).map(hazard_ratios)
+    return result
 
 
 def _design(df: pd.DataFrame, time_col: str, event_col: str, covariates: Iterable[str], predictor: str) -> pd.DataFrame:

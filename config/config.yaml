@@ -19,7 +19,6 @@ clinical:
   external_label: external
   hbsag_col: hbsag
   ebv_col: ebv_dna
-  ebv_transform: log10_plus1
   locked_ebv_cutoff: 6020.0
   covariates: [age, sex, ajcc_stage, chemotherapy, induction_chemotherapy]
   endpoints:
@@ -29,11 +28,7 @@ clinical:
     lrrfs: {time: lrrfs_time, event: lrrfs_event}
   threshold_reference_endpoint: dmfs
   threshold_scan:
-    min_fraction_per_hbsag_arm: 0.10
-    min_events_per_comparison_arm: 10
-    n_grid: 300
-    bootstrap_iterations: 1000
-    tolerance_fraction: 0.10
+    mode: reconstruct_discovery
 
 mri:
   reference_sequence: t1c
@@ -82,7 +77,10 @@ deep_learning:
   batch_size: 4
   learning_rate: 0.0001
   max_epochs: 200
-  patience: 20
+  patience: 10
+  inner_validation_fraction: 0.14285714285714285
+  # Optional original inner split labels: 'gradient' or 'validation' on every development row.
+  inner_split_column: resnet_subset
   weight_decay: 0.00001
   endpoints: [os, pfs, dmfs]
   feature_layer: global_average_pooling
@@ -90,6 +88,8 @@ deep_learning:
   device: auto
 
 modeling:
+  clinical_covariates: [age, sex, ajcc_stage, ebv_dna, hbsag, chemotherapy, induction_chemotherapy]
+  categorical_covariates: [ajcc_stage]
   output_dir: results/full/modeling
   endpoint_order: [dmfs, os, pfs]
   univariable_p_threshold: 0.05

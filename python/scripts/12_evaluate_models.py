@@ -36,7 +36,9 @@ def main():
     for ep, score_col in score_cols.items():
         train = scores[scores[c['cohort_col']] == c['train_label']]
         cutoff = train[score_col].median()
-        tmp = assign_risk_group(scores, score_col, cutoff)
+        tmp = assign_risk_group(scores, score_col, cutoff).dropna(
+            subset=['risk_group', c['endpoints'][ep]['time'], c['endpoints'][ep]['event']]
+        )
         for cohort, sub in tmp.groupby(c['cohort_col']):
             plot_km(sub, c['endpoints'][ep]['time'], c['endpoints'][ep]['event'], 'risk_group', outdir / f'KM_{ep}_{cohort}.png', title=f'{ep.upper()} {cohort}')
 

@@ -8,7 +8,10 @@ from pathlib import Path
 import pandas as pd
 
 from npcpaper.config import load_config, ensure_dir
-from npcpaper.threshold_scan import scan_thresholds, choose_locked_threshold, bootstrap_thresholds, summarize_bootstrap
+from npcpaper.threshold_scan import (
+    bootstrap_thresholds, choose_locked_threshold, reconstruct_discovery_grid,
+    scan_thresholds, summarize_bootstrap,
+)
 from npcpaper.figures import plot_threshold_scan, plot_bootstrap_thresholds
 from npcpaper.utils_io import write_json
 
@@ -21,12 +24,27 @@ def main():
     clinical = pd.read_csv(cfg['inputs']['clinical_csv'])
     c = cfg['clinical']
     cohort_col = c.get('cohort_col')
-    if cohort_col in clinical.columns:
-        clinical = clinical[clinical[cohort_col].isin([c.get('train_label', 'train'), c.get('internal_label', 'internal')])].copy()
+    clinical = clinical[clinical[cohort_col].isin([c.get('train_label', 'train'), c.get('internal_label', 'internal')])].copy()
     ep = c.get('threshold_reference_endpoint', 'dmfs')
     cols = c['endpoints'][ep]
     scfg = c['threshold_scan']
     outdir = ensure_dir(Path(cfg['project']['output_dir']) / 'threshold')
+    mode = scfg['mode']
+    if mode == 'reconstruct_discovery':
+        if ep != 'dmfs':
+            raise ValueError("The historical grid reconstruction is defined for DMFS.")
+        scan = reconstruct_discovery_grid(clinical, cols['time'], cols['event'], c['ebv_col'], c['hbsag_col'])
+        locked = c['locked_ebv_cutoff']
+        scan.to_csv(outdir / f'threshold_scan_{ep}.csv', index=False)
+        row = scan.loc[scan['hr_hbsag_positive'].idxmax()]
+        write_json({'mode': mode, 'first_maximizer': int(row['cutoff']),
+                    'hr_hbsag_positive': float(row['hr_hbsag_positive']),
+                    'locked_downstream_cutoff_ge': locked}, outdir / 'chosen_threshold.json')
+        plot_threshold_scan(scan, locked, outdir / f'threshold_scan_{ep}.png', title='Discovery DMFS grid reconstruction')
+        print('Reconstructed the discovery grid. Historical resample-level results are unavailable.')
+        return
+    if mode != 'demo_scan':
+        raise ValueError(f'Unknown threshold scan mode: {mode}')
     scan = scan_thresholds(
         clinical, cols['time'], cols['event'], c['ebv_col'], c['hbsag_col'], c['covariates'],
         n_grid=scfg.get('n_grid', 300),
