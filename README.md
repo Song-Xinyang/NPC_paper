@@ -145,7 +145,7 @@ Required columns include:
 - Radiomic robustness filter: inter-observer ICC >= 0.80
 - Deep learning: ResNet-50, Adam lr 1e-4, batch size 4, up to 200 epochs; use the checkpoint minimizing inner-validation Cox loss with patience 10. Supply `resnet_subset` in the clinical CSV for the actual gradient and validation assignments. Otherwise a new seeded split allocates 128 of 899 development patients to validation. Epoch 163 is the reported study checkpoint; a new fit selects its own epoch.
 - Cox tuning: fit preprocessing and univariable screening on the training portion of each development fold; use ten-fold partial-likelihood deviance and the largest penalty within one SE of the minimum. Evaluate concordance on separate test cohorts.
-- Single-cell: aggregate raw UMI counts by donor and cell type, then compare HBsAg-positive with HBsAg-negative donors using DESeq2. Report baseMean, log2 fold change, unadjusted P and within-cell-type BH-adjusted P. Figure 6d stars use the adjusted values. The optional signature-level correlation plot is separate from the archived seven-feature, 14-gene heat map in Supplementary Figure 11.
+- Single-cell: aggregate raw UMI counts by donor and cell type, then compare HBsAg-positive with HBsAg-negative donors using DESeq2. Report baseMean, log2 fold change, unadjusted P and within-cell-type BH-adjusted P. Figure 6d stars use the adjusted values. If paired imaging features are supplied, the workflow also produces an optional exploratory signature-level correlation plot, saved as `exploratory_signature_correlations.png`. This output is not a figure in the revised manuscript.
 
 ## Important notes
 
