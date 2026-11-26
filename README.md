@@ -42,7 +42,7 @@ bash run_all.sh demo
 The demo generates synthetic inputs, runs interaction/threshold analyses and
 LASSO Cox modeling, and checks the resulting patient scores and cohort summaries.
 GitHub Actions runs this same command for pull requests and changes to `master`.
-It does not reproduce manuscript values. See [maintenance and environment status](MAINTENANCE.md)
+See [maintenance and environment status](MAINTENANCE.md)
 for snapshot provenance, dependency updates and the limits of CI coverage.
 
 ## Full research workflow
@@ -62,10 +62,9 @@ the strict-greater-than historical DMFS discovery scan in Group I. Use the
 historical recorded DMFS times when checking that archived scan. For the
 revised cause-specific clinical analyses, supply adjudicated endpoint times
 in months from first treatment and status indicators. All downstream viral
-groups use the fixed inclusive threshold of 6,020 copies/mL. The historical
-1,000 resample-level cutoffs and the original executable for that bootstrap are
-unavailable. The full configuration reconstructs the grid only; the synthetic
-demo illustrates a separate resampling workflow.
+groups use the fixed inclusive threshold of 6,020 copies/mL. The full
+configuration reconstructs the grid only; the synthetic demo illustrates a
+separate resampling workflow.
 
 The historical retrospective MRI models included treatments received. The
 revision additionally evaluated a supplied endpoint-specific imaging score
