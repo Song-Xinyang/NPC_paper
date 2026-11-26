@@ -51,8 +51,7 @@ The revision implementation documents the methods reported by the authors. The
 earlier public snapshot (`c6c4b5c`) screened features before cross-validation,
 tuned the Cox penalty by C-index, used an inner-validation fraction of 15% and
 patience of 20, and used edgeR for pseudobulk analysis. These are distinct
-implementations. Updating the code does not establish which executable produced
-an archived table, selected checkpoint, patient-level MRI score or figure.
+implementations.
 
 The clinical interaction script estimates the adjusted log-linear association
 in Group I (development and internal-test patients together). Its optional
@@ -62,9 +61,7 @@ the strict-greater-than historical DMFS discovery scan in Group I. Use the
 historical recorded DMFS times when checking that archived scan. For the
 revised cause-specific clinical analyses, supply adjudicated endpoint times
 in months from first treatment and status indicators. All downstream viral
-groups use the fixed inclusive threshold of 6,020 copies/mL. The full
-configuration reconstructs the grid only; the synthetic demo illustrates a
-separate resampling workflow.
+groups use the fixed inclusive threshold of 6,020 copies/mL.
 
 The historical retrospective MRI models included treatments received. The
 revision additionally evaluated a supplied endpoint-specific imaging score
@@ -75,7 +72,7 @@ features and checkpoint. The internal test cohort was held out from downstream
 MRI fitting but contributed to the discovery of the clinical threshold.
 
 `environment.yml`, root `requirements.txt` and the R package installer describe
-the research environment but are not a validated lock of the published analysis.
+the research environment.
 The demo dependency snapshot covers only the demo. Capture and validate the full
 environment on the research machine before relying on it for reproduction.
 
